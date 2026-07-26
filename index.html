@@ -427,4 +427,126 @@
   // Nav scroll state
   const nav = document.getElementById('nav');
   window.addEventListener('scroll', () => {
-    nav.classList.toggle('scrolled', window.scrollY > 40)
+    nav.classList.toggle('scrolled', window.scrollY > 40);
+  });
+
+  // Reveal on scroll
+  const revealEls = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.15 });
+  revealEls.forEach(el => io.observe(el));
+
+  // Skill bar fill on reveal
+  const skillFills = document.querySelectorAll('.skill-fill');
+  const skillIo = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.style.width = e.target.dataset.w + '%';
+        skillIo.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.4 });
+  skillFills.forEach(el => skillIo.observe(el));
+
+  // Tilt effect for cards
+  document.querySelectorAll('.tilt').forEach(card => {
+    card.addEventListener('mousemove', (e) => {
+      const r = card.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - 0.5;
+      const y = (e.clientY - r.top) / r.height - 0.5;
+      card.style.transform = `perspective(700px) rotateX(${-y * 10}deg) rotateY(${x * 10}deg) translateZ(6px)`;
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = 'perspective(700px) rotateX(0) rotateY(0) translateZ(0)';
+    });
+  });
+
+  // ---- THREE.JS HERO: split code/canvas core ----
+  (function initHero(){
+    const canvas = document.getElementById('hero-canvas');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, canvas.clientWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 0, 7);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    function resize(){
+      const w = canvas.clientWidth || window.innerWidth * 0.56;
+      const h = window.innerHeight;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    resize();
+
+    const group = new THREE.Group();
+    scene.add(group);
+
+    // Solid faceted core (art / canvas half) - gold
+    const coreGeo = new THREE.IcosahedronGeometry(1.7, 0);
+    const coreMat = new THREE.MeshStandardMaterial({
+      color: 0xd4af37, flatShading:true, metalness:0.4, roughness:0.35, emissive:0x3a2a05, emissiveIntensity:0.4
+    });
+    const core = new THREE.Mesh(coreGeo, coreMat);
+    group.add(core);
+
+    // Wireframe shell (code half) - teal
+    const wireGeo = new THREE.IcosahedronGeometry(2.15, 1);
+    const wireMat = new THREE.MeshBasicMaterial({ color: 0x4fd1c5, wireframe:true, transparent:true, opacity:0.55 });
+    const wire = new THREE.Mesh(wireGeo, wireMat);
+    group.add(wire);
+
+    // Orbiting particles
+    const particleCount = 120;
+    const particleGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    for (let i=0; i<particleCount; i++){
+      const r = 3.2 + Math.random()*1.6;
+      const theta = Math.random()*Math.PI*2;
+      const phi = Math.acos((Math.random()*2)-1);
+      positions[i*3] = r*Math.sin(phi)*Math.cos(theta);
+      positions[i*3+1] = r*Math.sin(phi)*Math.sin(theta);
+      positions[i*3+2] = r*Math.cos(phi);
+    }
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const particleMat = new THREE.PointsMaterial({ color: 0xe8cf7a, size:0.035, transparent:true, opacity:0.65 });
+    const particles = new THREE.Points(particleGeo, particleMat);
+    scene.add(particles);
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const key = new THREE.PointLight(0x4fd1c5, 1.4, 20);
+    key.position.set(4, 3, 5);
+    scene.add(key);
+    const rim = new THREE.PointLight(0xd4af37, 1.1, 20);
+    rim.position.set(-4, -2, -3);
+    scene.add(rim);
+
+    let mouseX = 0, mouseY = 0;
+    window.addEventListener('mousemove', (e) => {
+      mouseX = (e.clientX / window.innerWidth - 0.5);
+      mouseY = (e.clientY / window.innerHeight - 0.5);
+    });
+
+    function animate(){
+      requestAnimationFrame(animate);
+      group.rotation.y += 0.0028;
+      group.rotation.x += 0.0009;
+      wire.rotation.y -= 0.0016;
+      particles.rotation.y += 0.0007;
+
+      group.rotation.y += (mouseX*0.6 - group.rotation.y*0.02) * 0.02;
+      group.rotation.x += (-mouseY*0.4 - group.rotation.x*0.02) * 0.02;
+
+      renderer.render(scene, camera);
+    }
+    animate();
+    canvas.classList.add('loaded');
+
+    window.addEventListener('resize', resize);
+  })();
+</script>
+
+</body>
+</html>
